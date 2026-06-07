@@ -48,9 +48,18 @@ vector_store = PineconeVectorStore(
 # -------------------------------------------------------------------
 
 def execute_sql_agent(user_query, recent_history, semantic_context):
-    db_uri = f"postgresql+psycopg2://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
+    # db_uri = f"postgresql+psycopg2://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
+    
+    db_url = os.environ['DATABASE_URL']
+    
+    if not db_url:
+        raise ValueError("[CRITICAL] DATABASE_URL environment variable is missing!")
+    
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
     db = SQLDatabase.from_uri(
-        db_uri,
+        db_url,
         include_tables=[
             'summarize_gascutting_machine', 
             'summarize_clad_details_info', 
