@@ -1,0 +1,349 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tata Telemetry Terminal</title>
+    <style>
+        /* CSS Architecture: Official Tata Corporate Theme */
+        :root {
+            --tata-blue: #1D438A; /* Official Tata Corporate Blue */
+            --bg-master: #e0f7fa; /* Light cyan-blue background inspired by terminal SQL */
+            --bg-panel: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --msg-user: #1D438A;
+            --msg-bot: #f8fafc;
+            --error-red: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-master);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .terminal-container {
+            width: 100%;
+            max-width: 850px;
+            height: 85vh;
+            background-color: var(--bg-panel);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(29, 67, 138, 0.15); /* Soft blue shadow */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background-color: var(--tata-blue);
+            color: #ffffff;
+            padding: 16px 24px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            height: 28px; 
+            width: auto;
+            border-radius: 2px;
+            background-color: transparent; 
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+            font-weight: 400;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e; 
+            border-radius: 50%;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .chat-viewport {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background-color: var(--bg-panel); /* Unified with panel for clean look */
+        }
+
+        .chat-viewport::-webkit-scrollbar { width: 8px; }
+        .chat-viewport::-webkit-scrollbar-track { background: var(--bg-panel); }
+        .chat-viewport::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        .message-row { display: flex; width: 100%; }
+        .message-row.user { justify-content: flex-end; }
+        .message-row.bot { justify-content: flex-start; }
+
+        .message-bubble {
+            max-width: 75%;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .message-row.user .message-bubble {
+            background-color: var(--msg-user);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message-row.bot .message-bubble {
+            background-color: var(--msg-bot);
+            color: var(--text-primary);
+            border-bottom-left-radius: 2px;
+            border: 1px solid var(--border-color);
+        }
+
+        .message-row.error .message-bubble {
+            background-color: #fef2f2;
+            color: var(--error-red);
+            border: 1px solid #fecaca;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 4px 8px;
+        }
+        
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background-color: var(--text-secondary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .input-dock {
+            padding: 16px 24px;
+            background-color: var(--bg-panel);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-dock input {
+            flex: 1;
+            padding: 14px 16px;
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-dock input:focus {
+            border-color: var(--tata-blue);
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(29, 67, 138, 0.1);
+        }
+
+        .input-dock button {
+            background-color: var(--tata-blue);
+            color: white;
+            border: none;
+            padding: 0 28px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .input-dock button:hover { opacity: 0.9; }
+        .input-dock button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="brand-container">
+                <img src="{% static 'images/tatalogo.png' %}" alt="Tata Logo" class="brand-logo" id="tata-logo">
+                Tata IoT Telemetry Assistant
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                Secure Connection
+            </div>
+        </div>
+        
+        <div class="chat-viewport" id="chatViewport">
+            <div class="message-row bot">
+                <div class="message-bubble">
+                    Secure local database connected. Access restricted to telemetry tables. How can I assist you with the machine metrics today?
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-dock">
+            <input type="text" id="userInput" placeholder="Query shift metrics, gas consumption, or arc on time..." autocomplete="off">
+            <button id="sendBtn">Execute</button>
+        </div>
+    </div>
+
+
+    <script>
+    // DOM Nodes
+        const chatViewport = document.getElementById('chatViewport');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        let loadingNode = null;
+        let sessionHistory = []; // Tracks the chronological session state
+
+        // Django CSRF Extraction
+        const getCookie = (name) => {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // DOM Render Logic
+        const renderMessage = (text, sender) => {
+            const rowDiv = document.createElement('div');
+            rowDiv.classList.add('message-row', sender);
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.classList.add('message-bubble');
+            bubbleDiv.innerText = text;
+
+            rowDiv.appendChild(bubbleDiv);
+            chatViewport.appendChild(rowDiv);
+            chatViewport.scrollTop = chatViewport.scrollHeight;
+        }
+
+        // Loading State Controllers
+        const showLoading = () => {
+            loadingNode = document.createElement('div');
+            loadingNode.classList.add('message-row', 'bot');
+            loadingNode.innerHTML = `
+                <div class="message-bubble">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatViewport.appendChild(loadingNode);
+            chatViewport.scrollTop = chatViewport.scrollHeight;
+        }
+
+        const hideLoading = () => {
+            if (loadingNode) {
+                chatViewport.removeChild(loadingNode);
+                loadingNode = null;
+            }
+        }
+
+        // Network Execution Pipeline
+        async function executeQuery() {
+            const query = userInput.value.trim();
+            if (!query) return;
+
+            // State Lock
+            userInput.value = '';
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            renderMessage(query, 'user');
+            showLoading();
+
+            try {
+                const csrftoken = getCookie('csrftoken');
+                const response = await fetch('/api/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    // Injects the current query AND the mathematical slice of the last 4 interactions
+                    body: JSON.stringify({ 
+                        message: query,
+                        history: sessionHistory.slice(-4)
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                hideLoading();
+                renderMessage(data.reply, 'bot');
+
+                // Append the successful transaction to the client-side memory array
+                sessionHistory.push({ role: 'user', content: query });
+                sessionHistory.push({ role: 'bot', content: data.reply });
+
+            } catch (error) {
+                console.error('Pipeline Fault:', error);
+                hideLoading();
+                renderMessage('Critical Error: Failed to communicate with semantic routing service.', 'error');
+            } finally {
+                // State Unlock
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        // Event Listeners
+        sendBtn.addEventListener('click', executeQuery);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') executeQuery();
+        });
+    </script>
+</body>
+</html>
