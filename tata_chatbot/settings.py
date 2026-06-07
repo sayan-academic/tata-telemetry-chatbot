@@ -29,7 +29,11 @@ SECRET_KEY = os.environ['SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = 'RENDER' not in os.environ
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "https://tata-iot-chatbot-ondjango.onrender.com",
+    'localhost',
+    '127.0.0.1'
+]
 
 
 # Application definition
