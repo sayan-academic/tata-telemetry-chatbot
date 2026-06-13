@@ -91,14 +91,19 @@ def execute_sql_agent(user_query, recent_history, semantic_context):
     
     Absolute Rules you must follow:
     1. If the user asks about "LPG" or "gas", ALWAYS map it to the `net_lpg_consumption` or `total_lpg_consumption` column.
-    2. If the user asks about "welding" or "weld" machines, map it to periodic_data_interval table.
-    3. Never execute DML commands (INSERT, UPDATE, DELETE). You are read-only.
-    4. Be concise. Do not explain the SQL query to the user, just give them the final numerical answer in a professional sentence.
-    5. CRITICAL FORMATTING: When you are ready to give the final response to the user, you MUST start your response with exactly these words: "Final Answer: "
-    6. THE TRUTH PROTOCOL: If a table does not contain the requested metric, explicitly state: "Final Answer: That metric is not tracked for this specific machine type."
+    2. if the user asks the "names" or "types" of machines, map it to the "machine_name" column of the table and run "SELECT DISTINCT FROM ..." query on the respective table.
+    3. If the user asks about "welding" or "weld" machines, map it to periodic_data_interval table.
+    4. Never execute DML commands (INSERT, UPDATE, DELETE). You are read-only.
+    5. Be concise. Do not explain the SQL query to the user, just give them the final numerical answer in a professional sentence.
+    6. CRITICAL FORMATTING: When you are ready to give the final response to the user, you MUST start your response with exactly these words: "Final Answer: "
+    7. THE TRUTH PROTOCOL: If a table does not contain the requested metric, explicitly state: "Final Answer: That metric is not tracked for this specific machine type."
     CRITICAL INSTRUCTION ON CONTEXT PRIORITIZATION:
-    1. You are provided with "Semantic context" and "Recent History". This is strictly for understanding conversational intent (e.g., if the user says "calculate it for gascutting", you look at history to see what "it" means).
-    2. NEVER use the numbers, values, or schemas found within the "Semantic context" or "Recent History" to formulate your Final Answer if a live SQL query can be run.
+    1. "Semantic context" and "Recent History" are provided SOLELY for understanding pronouns and subject matter (e.g., knowing what "it" or "these machines" refers to).
+    2. ASSUME ALL NUMERICAL VALUES IN HISTORY ARE EXPIRED AND INVALID.
+    3. You MUST execute a `sql_db_query` action to fetch live database values before outputting a Final Answer containing any metrics.
+    PRONOUN AND FOLLOW-UP RESOLUTION PROTOCOL:
+    1. If the user's query contains pronouns ("it", "they", "their", "them", "these") or is a fragmented follow-up (e.g., "what are their names?", "which ones?"), you MUST look at the IMMEDIATE CHAT HISTORY to resolve the exact subject.
+    2. Mentally rewrite the user's query to replace the pronoun with the explicit subject before generating SQL.
     ======================
     IMMEDIATE CHAT HISTORY (Chronological context for follow-up questions):
     {recent_history}
@@ -114,9 +119,23 @@ def execute_sql_agent(user_query, recent_history, semantic_context):
         toolkit=toolkit, 
         verbose=True,
         prefix=CUSTOM_PREFIX,
-        agent_executor_kwargs={"handle_parsing_errors": True}
+        agent_executor_kwargs={
+            "handle_parsing_errors": True,
+            "return_intermediate_steps": True
+        }
     )
     response = agent_executor.invoke({"input": user_query})
+    intermediate_steps = response.get('intermediate_steps', [])
+    executed_sql = "No SQL executed."
+    for action, observation in intermediate_steps:
+        # action.tool contains the name of the tool used (e.g., 'sql_db_schema', 'sql_db_query')
+        if action.tool == "sql_db_query":
+            # action.tool_input contains the actual SQL string the agent wrote
+            executed_sql = action.tool_input
+            break
+    sanitized_payload = f"USER INTENT: {user_query}\nSUCCESSFUL SQL METHODOLOGY: {executed_sql}"
+    doc = Document(page_content=sanitized_payload)
+    vector_store.add_documents([doc])
     return response['output']
 
 class ChatAPIview(APIView):
@@ -140,7 +159,7 @@ class ChatAPIview(APIView):
                 search_type="similarity_score_threshold",
                 search_kwargs={
                     "k": 2,
-                    "score_threshold": 0.70  # Only inject memory if it is >= 70% relevant
+                    "score_threshold": 0.85  # Only inject memory if it is >= 85% relevant
                 }
             )
             relevant_docs = retriever.invoke(user_message)
