@@ -10,9 +10,11 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import SQLDatabaseToolkit, create_sql_agent
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_groq import ChatGroq
 
 # Vector Database Utilities
 # from langchain_chroma import Chroma
+
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
 from langchain_core.documents import Document
@@ -24,7 +26,7 @@ def chat_interface(request):
 # setup for vector db -----------------------------------------------
 DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
 
-# Google's model translates English sentences into 768-dimensional arrays of floats
+# Google's model translates English sentences into 3072-dimensional arrays of floats
 embedding_model = GoogleGenerativeAIEmbeddings(
     model="gemini-embedding-001", 
     google_api_key=os.environ['GEMINI_API_KEY']
@@ -70,6 +72,7 @@ def execute_sql_agent(user_query, recent_history, semantic_context):
         ]
     )
 
+    '''
     primary_llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         temperature=0,
@@ -80,6 +83,18 @@ def execute_sql_agent(user_query, recent_history, semantic_context):
         model="gemini-2.5-flash-lite",
         temperature=0,
         google_api_key=os.environ['GEMINI_API_KEY']
+    )
+    '''
+
+    primary_llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        temperature=0,
+        api_key=os.environ['GROQ_API_KEY']
+    )
+    secondary_llm = ChatGroq(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        temperature=0,
+        api_key=os.environ['GROQ_API_KEY']
     )
 
     resilient_llm = primary_llm.with_fallbacks([secondary_llm])
@@ -103,7 +118,8 @@ def execute_sql_agent(user_query, recent_history, semantic_context):
     3. You MUST execute a `sql_db_query` action to fetch live database values before outputting a Final Answer containing any metrics.
     PRONOUN AND FOLLOW-UP RESOLUTION PROTOCOL:
     1. If the user's query contains pronouns ("it", "they", "their", "them", "these") or is a fragmented follow-up (e.g., "what are their names?", "which ones?"), you MUST look at the IMMEDIATE CHAT HISTORY to resolve the exact subject.
-    2. Mentally rewrite the user's query to replace the pronoun with the explicit subject before generating SQL.
+    2. if the user's query is a follow-up question (eg: "what about ..."), then execute the same previous queries but on the specific table.
+    3. Mentally rewrite the user's query to replace the pronoun with the explicit subject before generating SQL.
     ======================
     IMMEDIATE CHAT HISTORY (Chronological context for follow-up questions):
     {recent_history}
@@ -119,6 +135,7 @@ def execute_sql_agent(user_query, recent_history, semantic_context):
         toolkit=toolkit, 
         verbose=True,
         prefix=CUSTOM_PREFIX,
+        top_k=10,
         agent_executor_kwargs={
             "handle_parsing_errors": True,
             "return_intermediate_steps": True
@@ -191,8 +208,8 @@ class ChatAPIview(APIView):
                     raise api_error
             # ---------------------------------------------------------------------------------------------
             
-            memory_string = f"User asked: '{user_message}' | System answered: '{ai_response}'"
-            vector_store.add_documents([Document(page_content=memory_string)])
+            # memory_string = f"User asked: '{user_message}' | System answered: '{ai_response}'"
+            # vector_store.add_documents([Document(page_content=memory_string)])
             
             return Response({"reply": ai_response}, status=status.HTTP_200_OK)
             
