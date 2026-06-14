@@ -22,5 +22,5 @@ RUN SECRET_KEY="build-dummy-key" python manage.py collectstatic --no-input
 # 7. Expose Port
 EXPOSE 8000
 
-# 8. Execution Command (Dynamic Port Binding)
-CMD ["sh", "-c", "gunicorn tata_chatbot.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 120"]
+# 8. Execution Command (Dynamic Port Binding & Auto-Migration)
+CMD ["sh", "-c", "python manage.py migrate && gunicorn tata_chatbot.wsgi:application --bind 0.0.0.0:${PORT:-8000} --timeout 120"]
