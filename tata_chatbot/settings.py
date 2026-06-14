@@ -31,6 +31,7 @@ DEBUG = 'RENDER' not in os.environ
 
 ALLOWED_HOSTS = [
     "tata-iot-chatbot-ondjango.onrender.com",
+    "tata-telemetry-chatbot-ondocker.onrender.com",
     'localhost',
     '127.0.0.1'
 ]
