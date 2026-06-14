@@ -17,7 +17,7 @@ COPY . /app/
 
 # 6. Collect Static Files (NEW)
 # We inject a fake secret key just to bypass Django's startup checks during compilation
-RUN SECRET_KEY="build-dummy-key" python manage.py collectstatic --no-input
+RUN SECRET_KEY="build-dummy-key" DATABASE_URL="sqlite:///:memory:" python manage.py collectstatic --no-input
 
 # 7. Expose Port
 EXPOSE 8000
